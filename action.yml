@@ -26,7 +26,7 @@ inputs:
 
 runs:
   using: 'node16'
-  main: 'index.js'
+  main: 'build/index.js'
 
 branding:
   icon: 'user-plus'
