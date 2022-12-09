@@ -1,0 +1,25 @@
+name: 'Comment Invite'
+description: 'Add reviewers to your Pull Request based on a comment'
+inputs:
+  token:
+    description: 'Github personal token to add reviewers to pull request'
+    required: false
+    default: ${{ github.token }}
+  reviewers:
+    description: 'Comma separated list of reviewers'
+    required: true
+  trigger:
+    description: 'Comment message to use as trigger'
+    required: true
+  case-insensitive:
+    decription: 'Ignore case when checking for comment message trigger'
+    required: 'false'
+    default: false
+
+runs:
+  using: 'node16'
+  main: 'index.js'
+
+branding:
+  icon: 'user-plus'
+  color: 'green'
