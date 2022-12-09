@@ -1,50 +1,103 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { WebhookPayload } from '@actions/github/lib/interfaces';
+import { GitHub } from '@actions/github/lib/utils';
 
-function getUser(): string {
-  const pr = github.context.payload.pull_request;
-  if (pr && pr.user && pr.user.login) {
-    return pr.user.login;
+class Action {
+  private readonly client: InstanceType<typeof GitHub>;
+  private readonly reviewers: string[];
+  private readonly daysUntilTrigger: number;
+  private readonly baseBranch: string | undefined;
+  private readonly ignoreUpdates: boolean;
+  private readonly ignoreDraft: boolean;
+
+  static readonly LABEL = 'Stale';
+
+  private static getBaseBranch(branch?: string): string | undefined {
+    if (branch && branch.length === 0) {
+      return branch;
+    } else {
+      return undefined;
+    }
   }
-  throw 'Author for the PR could not be extracted';
+
+
+  constructor() {
+    this.client = github.getOctokit(core.getInput('token'));
+    this.reviewers = core.getInput('reviwers').split(',');
+    this.daysUntilTrigger = +core.getInput('days-until-stale') * 24 * 60 * 60 * 1000;
+    this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
+    this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
+    this.ignoreDraft = core.getInput('ignore-draft') === 'true';
+
+    if (this.reviewers.length === 0) {
+      throw 'No reviewers specified';
+    }
+  }
+
+  private async fetchPullRequests() {
+    return this.client.rest.pulls.list({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      state: 'open',
+      base: this.baseBranch,
+      sort: this.ignoreUpdates ? 'created' : 'updated',
+      direction: 'desc',
+    }).then(r => {
+      const now = new Date().getTime();
+      return r.data.filter(pr => {
+        // Filter already tagged
+        if (pr.labels.find(l => l.name === Action.LABEL)) {
+          return false;
+        }
+
+        // Possibly filter drafts
+        if (this.ignoreDraft && pr.draft) {
+          return false;
+        }
+
+        // Filter on age
+        const date = new Date(this.ignoreUpdates ? pr.created_at : pr.updated_at).getTime();
+        return now - date > this.daysUntilTrigger;
+      });
+    });
+  }
+
+
+  async run() {
+    const prs = await this.fetchPullRequests();
+
+    for (const pr of prs) {
+      const author = pr.user ? ` by ${pr.user.login}` : '';
+      core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
+
+      try {
+        await this.client.rest.pulls.requestReviewers({
+          owner: github.context.repo.owner,
+          repo: github.context.repo.repo,
+          pull_number: pr.number,
+          reviewers: this.reviewers,
+        });
+        await this.client.rest.issues.addLabels({
+          owner: github.context.repo.owner,
+          repo: github.context.repo.repo,
+          issue_number: pr.number,
+          labels: [Action.LABEL],
+        });
+        await this.client.rest.issues.createComment({
+          owner: github.context.repo.owner,
+          repo: github.context.repo.repo,
+          issue_number: pr.number,
+          body: 'This pull request seems a bit stale.. Shall we invite more to the party?',
+        });
+      } catch (error) {
+        core.error(`Processing PR error: ${error}`);
+      }
+    }
+  }
 }
 
-function getComment(payload: WebhookPayload, caseInsensitive: boolean): string {
-  if (!payload.comment || !payload.comment.body) {
-    return '';
-  }
-  const comment = payload.comment.body;
-  if (caseInsensitive) {
-    return comment.toLowerCase();
-  } else {
-    return comment;
-  }
+async function run() {
+  return new Action().run();
 }
 
-async function action() {
-  const context = github.context;
-  if (context.eventName !== 'pull_request_comment') {
-    throw 'Can only use this action on pull_request_comment';
-  }
-
-  const payload = context.payload
-  if (payload.action !== 'created' && payload.action !== 'edited') {
-    // TODO: Report that nothing was done
-    return;
-  }
-
-  // Params
-  const client = github.getOctokit(core.getInput('token'));
-  const reviewers = core.getInput('reviewers').split(',').filter(u => u !== user);
-  const caseInsensitive = core.getInput('case-insensitive') === 'true';
-  const trigger = caseInsensitive ? core.getInput('trigger').toLowerCase() : core.getInput('trigger');
-
-  const comment = getComment(payload, caseInsensitive);
-
-  // Pull request
-  const repo = context.repo;
-  const user = getUser();
-}
-
-action().catch(error => core.setFailed(error.message))
+run().catch(error => core.error(error))

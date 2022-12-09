@@ -1,7 +1,7 @@
 {
-  "name": "comment-invite",
+  "name": "stale-invite",
   "version": "1.0.0",
-  "description": "Invites users to a PR based on a comment",
+  "description": "Invites users to a PR based on age",
   "main": "build/index.js",
   "scripts": {
     "build": "tsc"

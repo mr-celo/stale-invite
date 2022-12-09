@@ -1,5 +1,5 @@
-name: 'Comment Invite'
-description: 'Add reviewers to your Pull Request based on a comment'
+name: 'Stale Invite'
+description: 'Add reviewers to your Pull Request when they get no traction'
 inputs:
   token:
     description: 'Github personal token to add reviewers to pull request'
@@ -8,13 +8,21 @@ inputs:
   reviewers:
     description: 'Comma separated list of reviewers'
     required: true
-  trigger:
-    description: 'Comment message to use as trigger'
+  days-until-stale:
+    description: 'Age in days the pull request must be to be picked up by this action'
     required: true
-  case-insensitive:
-    decription: 'Ignore case when checking for comment message trigger'
-    required: 'false'
-    default: false
+  base-branch:
+    description: 'Only run for pull requests onto the given branch'
+    required: false
+    default: ''
+  ignore-updates:
+    description: 'Use the creation age instead of last update age'
+    required: false
+    default: 'true'
+  ignore-draft:
+    decription: 'Ignore pull requests that are marked as draft'
+    required: false
+    default: 'true'
 
 runs:
   using: 'node16'
