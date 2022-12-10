@@ -9,8 +9,8 @@ class Action {
   private readonly baseBranch: string | undefined;
   private readonly ignoreUpdates: boolean;
   private readonly ignoreDraft: boolean;
-
-  static readonly LABEL = 'Stale';
+  private readonly label: string;
+  private readonly comment: string;
 
   private static getBaseBranch(branch?: string): string | undefined {
     if (branch && branch.length === 0) {
@@ -28,9 +28,15 @@ class Action {
     this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
     this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
     this.ignoreDraft = core.getInput('ignore-draft') === 'true';
+    this.label = core.getInput('label');
+    this.comment = core.getInput('comment');
 
     if (this.reviewers.length === 0) {
-      throw 'No reviewers specified';
+      throw new Error('No reviewers specified');
+    }
+
+    if (this.label.length === 0) {
+      throw new Error('Label name cannot be empty');
     }
   }
 
@@ -46,7 +52,7 @@ class Action {
       const now = new Date().getTime();
       return r.data.filter(pr => {
         // Filter already tagged
-        if (pr.labels.find(l => l.name === Action.LABEL)) {
+        if (pr.labels.find(l => l.name === this.label)) {
           return false;
         }
 
@@ -71,24 +77,32 @@ class Action {
       core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
 
       try {
-        await this.client.rest.pulls.requestReviewers({
-          owner: github.context.repo.owner,
-          repo: github.context.repo.repo,
-          pull_number: pr.number,
-          reviewers: this.reviewers,
-        });
+        const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login);
+        if (reviewers.length > 0) {
+          core.info('- Adding reviewers');
+          await this.client.rest.pulls.requestReviewers({
+            owner: github.context.repo.owner,
+            repo: github.context.repo.repo,
+            pull_number: pr.number,
+            reviewers: reviewers,
+          });
+        }
+        core.info('- Adding label');
         await this.client.rest.issues.addLabels({
           owner: github.context.repo.owner,
           repo: github.context.repo.repo,
           issue_number: pr.number,
-          labels: [Action.LABEL],
+          labels: [this.label],
         });
-        await this.client.rest.issues.createComment({
-          owner: github.context.repo.owner,
-          repo: github.context.repo.repo,
-          issue_number: pr.number,
-          body: 'This pull request seems a bit stale.. Shall we invite more to the party?',
-        });
+        if (this.comment.length > 0) {
+          core.info('- Adding comment');
+          await this.client.rest.issues.createComment({
+            owner: github.context.repo.owner,
+            repo: github.context.repo.repo,
+            issue_number: pr.number,
+            body: this.comment,
+          });
+        }
       } catch (error) {
         core.error(`Processing PR error: ${error}`);
       }
@@ -100,4 +114,4 @@ async function run() {
   return new Action().run();
 }
 
-run().catch(error => core.error(error))
+run().catch(error => core.setFailed(error))

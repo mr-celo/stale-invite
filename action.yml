@@ -2,7 +2,7 @@ name: 'Stale Invite'
 description: 'Add reviewers to your Pull Request when they get no traction'
 inputs:
   token:
-    description: 'Github personal token to add reviewers to pull request'
+    description: 'Github token to add reviewers to pull requests'
     required: false
     default: ${{ github.token }}
   reviewers:
@@ -14,7 +14,6 @@ inputs:
   base-branch:
     description: 'Only run for pull requests onto the given branch'
     required: false
-    default: ''
   ignore-updates:
     description: 'Use the creation age instead of last update age'
     required: false
@@ -23,6 +22,13 @@ inputs:
     decription: 'Ignore pull requests that are marked as draft'
     required: false
     default: 'true'
+  label:
+    decription: 'Label name to use on stale pull requests'
+    required: false
+    default: 'Stale'
+  comment:
+    decription: 'Comment to add to the pull request. Empty string to skip the comment'
+    required: false
 
 runs:
   using: 'node16'
