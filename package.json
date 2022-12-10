@@ -4,7 +4,8 @@
   "description": "Invites users to a PR based on age",
   "main": "build/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "dist": "tsc && ./node_modules/@vercel/ncc/dist/ncc/cli.js build"
   },
   "keywords": [],
   "author": "mr-celo",
