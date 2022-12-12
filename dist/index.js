@@ -52,7 +52,7 @@ class Action {
     }
     constructor() {
         this.client = github.getOctokit(core.getInput('token'));
-        this.reviewers = core.getInput('reviwers').split(',');
+        this.reviewers = core.getInput('reviewers').split(',').map(u => u.trim()).filter(u => u.length > 0);
         this.daysUntilTrigger = +core.getInput('days-until-stale') * 24 * 60 * 60 * 1000;
         this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
         this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
@@ -99,6 +99,8 @@ class Action {
             for (const pr of prs) {
                 const author = pr.user ? ` by ${pr.user.login}` : '';
                 core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
+                // REMOVEME
+                core.info(`- Configured reviewers: ${this.reviewers}`);
                 try {
                     const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login.toLowerCase());
                     if (reviewers.length > 0) {
