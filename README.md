@@ -31,7 +31,7 @@ jobs:
       - uses: mr-celo/stale-invite@v1
         with:
           reviewers: 'me,myself,irene'
-          days-util-stale: 2
+          days-until-stale: 2
           comment: 'This pull request seems a bit stale.. Shall we invite more to the party?'
 
 ```
