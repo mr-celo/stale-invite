@@ -77,9 +77,9 @@ class Action {
       core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
 
       try {
-        const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login);
+        const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login.toLowerCase());
         if (reviewers.length > 0) {
-          core.info('- Adding reviewers');
+          core.info(`- Adding reviewers: ${reviewers}`);
           await this.client.rest.pulls.requestReviewers({
             owner: github.context.repo.owner,
             repo: github.context.repo.repo,
@@ -87,7 +87,7 @@ class Action {
             reviewers: reviewers,
           });
         }
-        core.info('- Adding label');
+        core.info(`- Adding label: ${this.label}`);
         await this.client.rest.issues.addLabels({
           owner: github.context.repo.owner,
           repo: github.context.repo.repo,
@@ -95,7 +95,7 @@ class Action {
           labels: [this.label],
         });
         if (this.comment.length > 0) {
-          core.info('- Adding comment');
+          core.info(`- Adding comment: ${this.comment}`);
           await this.client.rest.issues.createComment({
             owner: github.context.repo.owner,
             repo: github.context.repo.repo,
