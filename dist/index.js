@@ -57,6 +57,8 @@ class Action {
         this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
         this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
         this.ignoreDraft = core.getInput('ignore-draft') === 'true';
+        this.ignoreReviews = core.getInput('ignore-reviews') === 'true';
+        this.approvalCount = +core.getInput('approval-count');
         this.label = core.getInput('label');
         this.comment = core.getInput('comment');
         if (this.reviewers.length === 0) {
@@ -96,7 +98,36 @@ class Action {
     run() {
         return __awaiter(this, void 0, void 0, function* () {
             const prs = yield this.fetchPullRequests();
+            const now = new Date().getTime();
             for (const pr of prs) {
+                if (!this.ignoreReviews || this.approvalCount > 0) {
+                    const reviews = yield this.client.rest.pulls.listReviews({
+                        owner: github.context.repo.owner,
+                        repo: github.context.repo.repo,
+                        pull_number: pr.number,
+                    }).then(r => r.data);
+                    if (this.approvalCount > 0) {
+                        if (reviews.filter(r => r.state === 'APPROVED').length >= this.approvalCount) {
+                            // Already approved.. Move on
+                            continue;
+                        }
+                    }
+                    if (!this.ignoreReviews) {
+                        const last_review = reviews.reduce((acc, curr) => {
+                            if (curr.submitted_at) {
+                                const date = new Date(curr.submitted_at);
+                                return date > acc ? date : acc;
+                            }
+                            else {
+                                return acc;
+                            }
+                        }, new Date(0)).getTime();
+                        if (now - last_review < this.daysUntilTrigger) {
+                            // There was a recent review.. Move on
+                            continue;
+                        }
+                    }
+                }
                 const author = pr.user ? ` by ${pr.user.login}` : '';
                 core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
                 const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login.toLowerCase());

@@ -9,6 +9,8 @@ class Action {
   private readonly baseBranch: string | undefined;
   private readonly ignoreUpdates: boolean;
   private readonly ignoreDraft: boolean;
+  private readonly ignoreReviews: boolean;
+  private readonly approvalCount: number;
   private readonly label: string;
   private readonly comment: string;
 
@@ -28,6 +30,8 @@ class Action {
     this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
     this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
     this.ignoreDraft = core.getInput('ignore-draft') === 'true';
+    this.ignoreReviews = core.getInput('ignore-reviews') === 'true';
+    this.approvalCount = +core.getInput('approval-count');
     this.label = core.getInput('label');
     this.comment = core.getInput('comment');
 
@@ -71,8 +75,40 @@ class Action {
 
   async run() {
     const prs = await this.fetchPullRequests();
+    const now = new Date().getTime();
 
     for (const pr of prs) {
+      if (!this.ignoreReviews || this.approvalCount > 0) {
+        const reviews = await this.client.rest.pulls.listReviews({
+          owner: github.context.repo.owner,
+          repo: github.context.repo.repo,
+          pull_number: pr.number,
+        }).then(r => r.data);
+
+        if (this.approvalCount > 0) {
+          if (reviews.filter(r => r.state === 'APPROVED').length >= this.approvalCount) {
+            // Already approved.. Move on
+            continue;
+          }
+        }
+
+        if (!this.ignoreReviews) {
+          const last_review = reviews.reduce((acc, curr) => {
+            if (curr.submitted_at) {
+              const date = new Date(curr.submitted_at);
+              return date > acc ? date : acc;
+            } else {
+              return acc;
+            }
+          }, new Date(0)).getTime();
+
+          if (now - last_review < this.daysUntilTrigger) {
+            // There was a recent review.. Move on
+            continue;
+          }
+        }
+      }
+
       const author = pr.user ? ` by ${pr.user.login}` : '';
       core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
 

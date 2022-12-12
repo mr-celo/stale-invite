@@ -22,6 +22,14 @@ inputs:
     decription: 'Ignore pull requests that are marked as draft'
     required: false
     default: 'true'
+  ignore-reviews:
+    decription: 'Do not reset the age when a review is submitted'
+    required: false
+    default: 'false'
+  approval-count:
+    decription: 'After this number of approvals, the pull request is never stale (set 0 to ignore)'
+    required: false
+    default: '1'
   label:
     decription: 'Label name to use on stale pull requests'
     required: false
