@@ -99,11 +99,9 @@ class Action {
             for (const pr of prs) {
                 const author = pr.user ? ` by ${pr.user.login}` : '';
                 core.info(`Stale PR found: ${pr.title} [#${pr.number}]${author}`);
-                // REMOVEME
-                core.info(`- Configured reviewers: ${this.reviewers}`);
-                try {
-                    const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login.toLowerCase());
-                    if (reviewers.length > 0) {
+                const reviewers = this.reviewers.filter(r => !pr.user || r.toLowerCase() !== pr.user.login.toLowerCase());
+                if (reviewers.length > 0) {
+                    try {
                         core.info(`- Adding reviewers: ${reviewers}`);
                         yield this.client.rest.pulls.requestReviewers({
                             owner: github.context.repo.owner,
@@ -111,26 +109,29 @@ class Action {
                             pull_number: pr.number,
                             reviewers: reviewers,
                         });
-                    }
-                    core.info(`- Adding label: ${this.label}`);
-                    yield this.client.rest.issues.addLabels({
-                        owner: github.context.repo.owner,
-                        repo: github.context.repo.repo,
-                        issue_number: pr.number,
-                        labels: [this.label],
-                    });
-                    if (this.comment.length > 0) {
-                        core.info(`- Adding comment: ${this.comment}`);
-                        yield this.client.rest.issues.createComment({
+                        core.info(`- Adding label: ${this.label}`);
+                        yield this.client.rest.issues.addLabels({
                             owner: github.context.repo.owner,
                             repo: github.context.repo.repo,
                             issue_number: pr.number,
-                            body: this.comment,
+                            labels: [this.label],
                         });
+                        if (this.comment.length > 0) {
+                            core.info(`- Adding comment: ${this.comment}`);
+                            yield this.client.rest.issues.createComment({
+                                owner: github.context.repo.owner,
+                                repo: github.context.repo.repo,
+                                issue_number: pr.number,
+                                body: this.comment,
+                            });
+                        }
+                    }
+                    catch (error) {
+                        core.error(`Processing PR error: ${error}`);
                     }
                 }
-                catch (error) {
-                    core.error(`Processing PR error: ${error}`);
+                else {
+                    throw new Error('There were no reviewers to be added (authors may not be invited)');
                 }
             }
         });
