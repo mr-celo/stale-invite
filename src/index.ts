@@ -2,6 +2,48 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { GitHub } from '@actions/github/lib/utils';
 
+// Returns true if it should be filtered out
+class Filter {
+  static onLabel(pr: { labels: { name: string }[] }, label: string): boolean {
+    return pr.labels.find(l => l.name === label) !== undefined;
+  }
+
+  static onDraft(pr: { draft?: boolean }, ignoreDraft: boolean): boolean {
+    if (ignoreDraft) {
+      return false;
+    }
+    return pr.draft ? pr.draft : false;
+  }
+
+  static onDate(pr: { created_at: string, updated_at: string }, useCreation: boolean, now: number, threshold: number): boolean {
+    const date = new Date(useCreation ? pr.created_at : pr.updated_at).getTime();
+    return now - date > threshold;
+  }
+
+  static onApproval(reviews: { state: string }[], threshold: number): boolean {
+    if (threshold < 1) {
+      return false;
+    }
+    return reviews.filter(r => r.state === 'APPROVED').length >= threshold;
+  }
+
+  static onReviewDate(reviews: { submitted_at?: string }[], ignoreReviews: boolean, now: number, threshold: number): boolean {
+    if (ignoreReviews) {
+      return false;
+    }
+    const last_review = reviews.reduce((acc, curr) => {
+      if (curr.submitted_at) {
+        const date = new Date(curr.submitted_at);
+        return date > acc ? date : acc;
+      } else {
+        return acc;
+      }
+    }, new Date(0)).getTime();
+
+    return now - last_review >= threshold;
+  }
+}
+
 class Action {
   private readonly client: InstanceType<typeof GitHub>;
   private readonly reviewers: string[];
@@ -56,18 +98,17 @@ class Action {
       const now = new Date().getTime();
       return r.data.filter(pr => {
         // Filter already tagged
-        if (pr.labels.find(l => l.name === this.label)) {
+        if (Filter.onLabel(pr, this.label)) {
           return false;
         }
 
         // Possibly filter drafts
-        if (this.ignoreDraft && pr.draft) {
+        if (Filter.onDraft(pr, this.ignoreDraft)) {
           return false;
         }
 
         // Filter on age
-        const date = new Date(this.ignoreUpdates ? pr.created_at : pr.updated_at).getTime();
-        return now - date > this.daysUntilTrigger;
+        return Filter.onDate(pr, this.ignoreUpdates, now, this.daysUntilTrigger);
       });
     });
   }
@@ -85,27 +126,12 @@ class Action {
           pull_number: pr.number,
         }).then(r => r.data);
 
-        if (this.approvalCount > 0) {
-          if (reviews.filter(r => r.state === 'APPROVED').length >= this.approvalCount) {
-            // Already approved.. Move on
-            continue;
-          }
+        if (Filter.onApproval(reviews, this.approvalCount)) {
+          continue;
         }
 
-        if (!this.ignoreReviews) {
-          const last_review = reviews.reduce((acc, curr) => {
-            if (curr.submitted_at) {
-              const date = new Date(curr.submitted_at);
-              return date > acc ? date : acc;
-            } else {
-              return acc;
-            }
-          }, new Date(0)).getTime();
-
-          if (now - last_review < this.daysUntilTrigger) {
-            // There was a recent review.. Move on
-            continue;
-          }
+        if (Filter.onReviewDate(reviews, this.ignoreReviews, now, this.daysUntilTrigger)) {
+          continue;
         }
       }
 
