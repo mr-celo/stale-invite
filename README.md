@@ -8,7 +8,7 @@ Invite reviewers to your pull request after a certain number of days of inactivi
 |------------------|-----------------------------------------------------------------------------------|----------|-------------------|
 | token            | Github token to add reviewers to pull requests                                    |          | ${{github.token}} |
 | reviewers        | Comma separated list of reviewers                                                 | ✅       |                   |
-| days-until-stale | Age in days the pull request must be to be picked up by this action               | ✅       |                   |
+| days-until-stale | Age in days the pull request must be to be picked up by this action               |          | 2                 |
 | base-branch      | Only run for pull requests onto the given branch                                  |          |                   |
 | ignore-updates   | Use the creation age instead of last update age                                   |          | true              |
 | ignore-draft     | Ignore pull requests that are marked as draft                                     |          | true              |

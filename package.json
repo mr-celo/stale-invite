@@ -4,8 +4,9 @@
   "description": "Invites users to a PR based on age",
   "main": "build/index.js",
   "scripts": {
+    "test": "jest",
     "build": "tsc",
-    "dist": "tsc && ./node_modules/@vercel/ncc/dist/ncc/cli.js build"
+    "dist": "jest && tsc && ncc build"
   },
   "keywords": [],
   "author": "mr-celo",
@@ -13,7 +14,9 @@
   "dependencies": {
     "@actions/core": "^1.10.0",
     "@actions/github": "^5.1.1",
-    "@vercel/ncc": "^0.36.0"
+    "@vercel/ncc": "^0.36.0",
+    "jest": "^29.3.1",
+    "ts-jest": "^29.0.3"
   },
   "devDependencies": {
     "typescript": "^4.9.4"

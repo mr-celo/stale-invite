@@ -39,8 +39,47 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Filter = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
+// Returns true if it should be filtered out
+class Filter {
+    static onLabel(pr, label) {
+        return pr.labels.find(l => l.name === label) !== undefined;
+    }
+    static onDraft(pr, ignoreDraft) {
+        if (ignoreDraft) {
+            return false;
+        }
+        return pr.draft ? pr.draft : false;
+    }
+    static onDate(pr, useCreation, now, threshold) {
+        const date = new Date(useCreation ? pr.created_at : pr.updated_at).getTime();
+        return now - date > threshold;
+    }
+    static onApproval(reviews, threshold) {
+        if (threshold < 1) {
+            return false;
+        }
+        return reviews.filter(r => r.state === 'APPROVED').length >= threshold;
+    }
+    static onReviewDate(reviews, ignoreReviews, now, threshold) {
+        if (ignoreReviews) {
+            return false;
+        }
+        const last_review = reviews.reduce((acc, curr) => {
+            if (curr.submitted_at) {
+                const date = new Date(curr.submitted_at);
+                return date > acc ? date : acc;
+            }
+            else {
+                return acc;
+            }
+        }, new Date(0)).getTime();
+        return now - last_review < threshold;
+    }
+}
+exports.Filter = Filter;
 class Action {
     static getBaseBranch(branch) {
         if (branch && branch.length === 0) {
@@ -81,16 +120,15 @@ class Action {
                 const now = new Date().getTime();
                 return r.data.filter(pr => {
                     // Filter already tagged
-                    if (pr.labels.find(l => l.name === this.label)) {
+                    if (Filter.onLabel(pr, this.label)) {
                         return false;
                     }
                     // Possibly filter drafts
-                    if (this.ignoreDraft && pr.draft) {
+                    if (Filter.onDraft(pr, this.ignoreDraft)) {
                         return false;
                     }
                     // Filter on age
-                    const date = new Date(this.ignoreUpdates ? pr.created_at : pr.updated_at).getTime();
-                    return now - date > this.daysUntilTrigger;
+                    return Filter.onDate(pr, this.ignoreUpdates, now, this.daysUntilTrigger);
                 });
             });
         });
@@ -106,26 +144,11 @@ class Action {
                         repo: github.context.repo.repo,
                         pull_number: pr.number,
                     }).then(r => r.data);
-                    if (this.approvalCount > 0) {
-                        if (reviews.filter(r => r.state === 'APPROVED').length >= this.approvalCount) {
-                            // Already approved.. Move on
-                            continue;
-                        }
+                    if (Filter.onApproval(reviews, this.approvalCount)) {
+                        continue;
                     }
-                    if (!this.ignoreReviews) {
-                        const last_review = reviews.reduce((acc, curr) => {
-                            if (curr.submitted_at) {
-                                const date = new Date(curr.submitted_at);
-                                return date > acc ? date : acc;
-                            }
-                            else {
-                                return acc;
-                            }
-                        }, new Date(0)).getTime();
-                        if (now - last_review < this.daysUntilTrigger) {
-                            // There was a recent review.. Move on
-                            continue;
-                        }
+                    if (Filter.onReviewDate(reviews, this.ignoreReviews, now, this.daysUntilTrigger)) {
+                        continue;
                     }
                 }
                 const author = pr.user ? ` by ${pr.user.login}` : '';

@@ -3,7 +3,7 @@ import * as github from '@actions/github';
 import { GitHub } from '@actions/github/lib/utils';
 
 // Returns true if it should be filtered out
-class Filter {
+export class Filter {
   static onLabel(pr: { labels: { name: string }[] }, label: string): boolean {
     return pr.labels.find(l => l.name === label) !== undefined;
   }
@@ -40,7 +40,7 @@ class Filter {
       }
     }, new Date(0)).getTime();
 
-    return now - last_review >= threshold;
+    return now - last_review < threshold;
   }
 }
 

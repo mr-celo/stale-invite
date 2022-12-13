@@ -10,7 +10,8 @@ inputs:
     required: true
   days-until-stale:
     description: 'Age in days the pull request must be to be picked up by this action'
-    required: true
+    required: false
+    default: '2'
   base-branch:
     description: 'Only run for pull requests onto the given branch'
     required: false
@@ -37,6 +38,7 @@ inputs:
   comment:
     decription: 'Comment to add to the pull request. Empty string to skip the comment'
     required: false
+    default: ''
 
 runs:
   using: 'node16'
