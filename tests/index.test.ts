@@ -47,26 +47,26 @@ test('filters on draft', () => {
   let pr = {
     draft: true
   };
-  expect(Filter.onDraft(pr, false)).toBe(true);
+  expect(Filter.onDraft(pr, true)).toBe(true);
 });
 
 test('does not filter on draft if should ignore', () => {
   let pr = {
     draft: true,
   };
-  expect(Filter.onDraft(pr, true)).toBe(false);
+  expect(Filter.onDraft(pr, false)).toBe(false);
 });
 
 test('does not filter on draft if missing', () => {
   let pr = {};
-  expect(Filter.onDraft(pr, false)).toBe(false);
+  expect(Filter.onDraft(pr, true)).toBe(false);
 });
 
 test('does not filter on draft if false', () => {
   let pr = {
     draft: false
   };
-  expect(Filter.onDraft(pr, false)).toBe(false);
+  expect(Filter.onDraft(pr, true)).toBe(false);
 });
 
 // Date

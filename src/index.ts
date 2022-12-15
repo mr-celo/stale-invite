@@ -9,7 +9,7 @@ export class Filter {
   }
 
   static onDraft(pr: { draft?: boolean }, ignoreDraft: boolean): boolean {
-    if (ignoreDraft) {
+    if (!ignoreDraft) {
       return false;
     }
     return pr.draft ? pr.draft : false;

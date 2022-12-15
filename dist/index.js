@@ -48,7 +48,7 @@ class Filter {
         return pr.labels.find(l => l.name === label) !== undefined;
     }
     static onDraft(pr, ignoreDraft) {
-        if (ignoreDraft) {
+        if (!ignoreDraft) {
             return false;
         }
         return pr.draft ? pr.draft : false;
