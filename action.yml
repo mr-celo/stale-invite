@@ -27,6 +27,10 @@ inputs:
     decription: 'Do not reset the age when a review is submitted'
     required: false
     default: 'false'
+  ignore-weekends:
+    decription: 'Weekends do not count towards the age of the pull request'
+    required: false
+    default: 'true'
   approval-count:
     decription: 'After this number of approvals, the pull request is never stale (set 0 to ignore)'
     required: false

@@ -1,8 +1,6 @@
 import { Filter } from '../src/index';
 import { expect, test } from '@jest/globals';
 
-const one_day = 24 * 3600 * 1000;
-
 // Label
 test('filters on label', () => {
   let pr = {
@@ -75,7 +73,7 @@ test('filters on creation date', () => {
     created_at: new Date(0).toISOString(),
     updated_at: new Date().toISOString(),
   };
-  expect(Filter.onDate(pr, true, new Date().getTime(), one_day)).toBe(true);
+  expect(Filter.onDate(pr, true, false, new Date(), 1)).toBe(true);
 });
 
 test('filters on update date', () => {
@@ -83,7 +81,7 @@ test('filters on update date', () => {
     created_at: new Date().toISOString(),
     updated_at: new Date(0).toISOString(),
   };
-  expect(Filter.onDate(pr, false, new Date().getTime(), one_day)).toBe(true);
+  expect(Filter.onDate(pr, false, false, new Date(), 1)).toBe(true);
 });
 
 test('does not filter on date if young', () => {
@@ -91,8 +89,8 @@ test('does not filter on date if young', () => {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  expect(Filter.onDate(pr, true, new Date().getTime(), one_day)).toBe(false);
-  expect(Filter.onDate(pr, false, new Date().getTime(), one_day)).toBe(false);
+  expect(Filter.onDate(pr, true, false, new Date(), 1)).toBe(false);
+  expect(Filter.onDate(pr, false, false, new Date(), 1)).toBe(false);
 });
 
 // Approval
@@ -176,7 +174,7 @@ test('filters on review date if at least one recent', () => {
       submitted_at: new Date(0).toISOString(),
     },
   ];
-  expect(Filter.onReviewDate(reviews, false, new Date().getTime(), one_day)).toBe(true);
+  expect(Filter.onReviewDate(reviews, false, false, new Date(), 1)).toBe(true);
 });
 
 test('does not filter on review date if should ignore', () => {
@@ -191,7 +189,7 @@ test('does not filter on review date if should ignore', () => {
       submitted_at: new Date(0).toISOString(),
     },
   ];
-  expect(Filter.onReviewDate(reviews, true, new Date().getTime(), one_day)).toBe(false);
+  expect(Filter.onReviewDate(reviews, true, false, new Date(), 1)).toBe(false);
 });
 
 test('does not filter on review date if all are old', () => {
@@ -203,13 +201,22 @@ test('does not filter on review date if all are old', () => {
       submitted_at: new Date(0).toISOString(),
     },
   ];
-  expect(Filter.onReviewDate(reviews, false, new Date().getTime(), one_day)).toBe(false);
+  expect(Filter.onReviewDate(reviews, false, false, new Date(), 1)).toBe(false);
 });
 
 test('does not filter on review date if date missing', () => {
   let reviews = [
     {},
   ];
-  expect(Filter.onReviewDate(reviews, false, new Date().getTime(), one_day)).toBe(false);
-  expect(Filter.onReviewDate([], false, new Date().getTime(), one_day)).toBe(false);
+  expect(Filter.onReviewDate(reviews, false, false, new Date(), 1)).toBe(false);
+  expect(Filter.onReviewDate([], false, false, new Date(), 1)).toBe(false);
+});
+
+// Weekends
+test('weekends should count', () => {
+  expect(Filter.getDurationInDays(new Date('2023-01-01T00:00:00Z'), new Date('2023-01-14T00:00:00Z'), false)).toBe(13);
+});
+
+test('weekends should not count', () => {
+  expect(Filter.getDurationInDays(new Date('2023-01-01T00:00:00Z'), new Date('2023-01-14T00:00:00Z'), true)).toBe(9);
 });

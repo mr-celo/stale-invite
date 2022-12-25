@@ -13,6 +13,7 @@ Invite reviewers to your pull request after a certain number of days of inactivi
 | ignore-updates   | Use the creation age instead of last update age                                   |          | true              |
 | ignore-draft     | Ignore pull requests that are marked as draft                                     |          | true              |
 | ignore-reviews   | Do not reset the age when a review is submitted                                   |          | false             |
+| ignore-weekends  | Weekends do not count towards the age of the pull request                         |          | true              |
 | approval-count   | After this number of approvals, the pull request is never stale (set 0 to ignore) |          | 1                 |
 | label            | Label name to use on stale pull requests                                          |          | Stale             |
 | comment          | Comment to add to the pull request. Empty string to skip the comment              |          |                   |

@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { eachWeekendOfInterval, intervalToDuration } from 'date-fns';
 import { GitHub } from '@actions/github/lib/utils';
 
 // Returns true if it should be filtered out
@@ -15,9 +16,15 @@ export class Filter {
     return pr.draft ? pr.draft : false;
   }
 
-  static onDate(pr: { created_at: string, updated_at: string }, useCreation: boolean, now: number, threshold: number): boolean {
-    const date = new Date(useCreation ? pr.created_at : pr.updated_at).getTime();
-    return now - date > threshold;
+  static onDate(
+    pr: { created_at: string, updated_at: string },
+    useCreation: boolean,
+    ignoreWeekends: boolean,
+    now: Date,
+    threshold: number
+  ): boolean {
+    const date = new Date(useCreation ? pr.created_at : pr.updated_at);
+    return this.getDurationInDays(date, now, ignoreWeekends) >= threshold;
   }
 
   static onApproval(reviews: { state: string }[], threshold: number): boolean {
@@ -27,7 +34,13 @@ export class Filter {
     return reviews.filter(r => r.state === 'APPROVED').length >= threshold;
   }
 
-  static onReviewDate(reviews: { submitted_at?: string }[], ignoreReviews: boolean, now: number, threshold: number): boolean {
+  static onReviewDate(
+    reviews: { submitted_at?: string }[],
+    ignoreReviews: boolean,
+    ignoreWeekends: boolean,
+    now: Date,
+    threshold: number
+  ): boolean {
     if (ignoreReviews) {
       return false;
     }
@@ -38,9 +51,19 @@ export class Filter {
       } else {
         return acc;
       }
-    }, new Date(0)).getTime();
+    }, new Date(0));
 
-    return now - last_review < threshold;
+    return this.getDurationInDays(last_review, now, ignoreWeekends) < threshold;
+  }
+
+  static getDurationInDays(start: Date, end: Date, ignoreWeekends: boolean) {
+    const interval = {
+      start: start,
+      end: end,
+    };
+    const duration = intervalToDuration(interval);
+    const weekends = ignoreWeekends ? eachWeekendOfInterval(interval).length : 0;
+    return duration.days ? (duration.days - weekends) : 0;
   }
 }
 
@@ -52,6 +75,7 @@ class Action {
   private readonly ignoreUpdates: boolean;
   private readonly ignoreDraft: boolean;
   private readonly ignoreReviews: boolean;
+  private readonly ignoreWeekends: boolean;
   private readonly approvalCount: number;
   private readonly label: string;
   private readonly comment: string;
@@ -68,11 +92,12 @@ class Action {
   constructor() {
     this.client = github.getOctokit(core.getInput('token'));
     this.reviewers = core.getInput('reviewers').split(',').map(u => u.trim()).filter(u => u.length > 0);
-    this.daysUntilTrigger = +core.getInput('days-until-stale') * 24 * 60 * 60 * 1000;
+    this.daysUntilTrigger = +core.getInput('days-until-stale');
     this.baseBranch = Action.getBaseBranch(core.getInput('base-branch'));
     this.ignoreUpdates = core.getInput('ignore-updates') === 'true';
     this.ignoreDraft = core.getInput('ignore-draft') === 'true';
     this.ignoreReviews = core.getInput('ignore-reviews') === 'true';
+    this.ignoreWeekends = core.getInput('ignore-weekends') === 'true';
     this.approvalCount = +core.getInput('approval-count');
     this.label = core.getInput('label');
     this.comment = core.getInput('comment');
@@ -95,7 +120,7 @@ class Action {
       sort: this.ignoreUpdates ? 'created' : 'updated',
       direction: 'desc',
     }).then(r => {
-      const now = new Date().getTime();
+      const now = new Date();
       return r.data.filter(pr => {
         // Filter already tagged
         if (Filter.onLabel(pr, this.label)) {
@@ -108,7 +133,7 @@ class Action {
         }
 
         // Filter on age
-        return Filter.onDate(pr, this.ignoreUpdates, now, this.daysUntilTrigger);
+        return Filter.onDate(pr, this.ignoreUpdates, this.ignoreWeekends, now, this.daysUntilTrigger);
       });
     });
   }
@@ -116,7 +141,7 @@ class Action {
 
   async run() {
     const prs = await this.fetchPullRequests();
-    const now = new Date().getTime();
+    const now = new Date();
 
     for (const pr of prs) {
       if (!this.ignoreReviews || this.approvalCount > 0) {
@@ -130,7 +155,7 @@ class Action {
           continue;
         }
 
-        if (Filter.onReviewDate(reviews, this.ignoreReviews, now, this.daysUntilTrigger)) {
+        if (Filter.onReviewDate(reviews, this.ignoreReviews, this.ignoreWeekends, now, this.daysUntilTrigger)) {
           continue;
         }
       }
